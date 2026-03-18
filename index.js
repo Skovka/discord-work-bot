@@ -25,14 +25,13 @@ function getElapsed(id) {
   return data.users[id].total + (Date.now() - data.users[id].lastStart);
 }
 
-const timers = new Map();
-
+// Menu pracy
 async function sendMenu(message) {
   const embed = new EmbedBuilder()
     .setTitle('💼 Menu Pracy')
     .setDescription('Wybierz akcję:\n\n🟢 Rozpocznij Służbę\n⏸️ Przerwa\n🔴 Zakończ Służbę')
     .setColor(0x00FF00)
-    .setFooter({ text: 'Twój osobisty licznik czasu ⏱️' });
+    .setFooter({ text: 'Twój licznik czasu ⏱️' });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('start').setLabel('🟢 Rozpocznij Służbę').setStyle(ButtonStyle.Success),
@@ -43,6 +42,7 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
+// Wiadomości na kanale
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -55,18 +55,16 @@ client.on('messageCreate', async message => {
   }
 
   if (message.content === '!tabela') {
-    const rows = Object.entries(data.users).map(([id, user]) => {
-      const total = formatTime(getElapsed(id));
-      return `<@${id}>: ${total}`;
-    });
+    const rows = Object.entries(data.users)
+      .map(([id, user]) => `<@${id}>: ${formatTime(getElapsed(id))}`);
     message.channel.send(`📊 **Tabela Służby:**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
   }
 
   if (message.content === '!ranking') {
     const ranking = Object.entries(data.total)
       .sort(([,a],[,b]) => b - a)
-      .slice(0, 10)
-      .map(([id, total], i) => `${i+1}. <@${id}> – ${formatTime(total)}`);
+      .slice(0,10)
+      .map(([id,total],i) => `${i+1}. <@${id}> – ${formatTime(total)}`);
     message.channel.send(`🏆 **Top 10 Służby (łączny czas):**\n${ranking.length ? ranking.join('\n') : 'Brak danych'}`);
   }
 });
@@ -74,22 +72,33 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
-  if (!data.users[id]) data.users[id] = { total: 0, running: false, lastStart: null, startTime: null };
-
+  const channel = interaction.channel;
   const now = Date.now();
 
+  if (!data.users[id]) data.users[id] = { total: 0, running: false, lastStart: null, startTime: null };
+
+  // START
   if (interaction.customId === 'start') {
-    if (data.users[id].running) return interaction.reply({ content: 'Już jesteś w pracy! ⏱️', ephemeral: true });
+    if (data.users[id].running) return interaction.reply({ content:'Już jesteś w pracy! ⏱️', ephemeral:true });
+
     data.users[id].running = true;
     data.users[id].lastStart = now;
     data.users[id].startTime = now;
     if (!data.total[id]) data.total[id] = 0;
     saveData();
-    interaction.reply({ content: '🟢 Rozpoczęto służbę!', ephemeral: true });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('pause').setLabel('⏸️ Przerwa').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
+    );
+
+    interaction.update({ content:'🟢 Rozpoczęto służbę!', components: [row] });
   }
 
+  // PAUSE
   if (interaction.customId === 'pause') {
-    if (!data.users[id].running) return interaction.reply({ content: 'Nie jesteś w pracy!', ephemeral: true });
+    if (!data.users[id].running) return interaction.reply({ content:'Nie jesteś w pracy!', ephemeral:true });
+
     data.users[id].running = false;
     data.users[id].total += now - data.users[id].lastStart;
     saveData();
@@ -98,11 +107,15 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('resume').setLabel('▶️ Wznów').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
-    interaction.update({ components: [row] });
+
+    await interaction.update({ content:'⏸️ Przerwa rozpoczęta!', components: [row] });
+    channel.send(`<@${id}> jest teraz na przerwie ⏸️`);
   }
 
+  // RESUME
   if (interaction.customId === 'resume') {
-    if (data.users[id].running) return interaction.reply({ content: 'Już jesteś w pracy!', ephemeral: true });
+    if (data.users[id].running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
+
     data.users[id].running = true;
     data.users[id].lastStart = now;
     saveData();
@@ -111,9 +124,12 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('pause').setLabel('⏸️ Przerwa').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
-    interaction.update({ components: [row] });
+
+    await interaction.update({ content:'▶️ Służba wznowiona!', components: [row] });
+    channel.send(`<@${id}> wznowił służbę ⏱️`);
   }
 
+  // STOP
   if (interaction.customId === 'stop') {
     if (data.users[id].running) data.users[id].total += now - data.users[id].lastStart;
     data.users[id].running = false;
@@ -126,8 +142,8 @@ client.on('interactionCreate', async interaction => {
 
     saveData();
 
-    await interaction.user.send(
-      `🔴 **Służba zakończona!**\n` +
+    await channel.send(
+      `<@${id}> 🔴 **Służba zakończona!**\n` +
       `🕒 Rozpoczęto: ${startTime}\n` +
       `🕒 Zakończono: ${endTime}\n` +
       `⏱️ Czas dzisiejszej służby: ${formatTime(sessionTime)}\n` +
@@ -142,7 +158,8 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('pause').setLabel('⏸️ Przerwa').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
-    interaction.update({ components: [row] });
+
+    interaction.update({ content:'Panel gotowy do nowej służby', components: [row] });
   }
 });
 
