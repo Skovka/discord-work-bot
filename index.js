@@ -9,8 +9,12 @@ const DATA_FILE = './data.json';
 let data = { users: {}, total: {} };
 if (fs.existsSync(DATA_FILE)) data = JSON.parse(fs.readFileSync(DATA_FILE));
 
-function saveData() { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+// Zapis danych
+function saveData() {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
 
+// Format czasu
 function formatTime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const h = Math.floor(totalSeconds / 3600);
@@ -19,19 +23,20 @@ function formatTime(ms) {
   return `${h}h ${m}m ${s}s`;
 }
 
+// Pobranie aktualnego czasu dla użytkownika
 function getElapsed(id) {
   if (!data.users[id]) return 0;
-  if (!data.users[id].running) return data.users[id].total;
-  return data.users[id].total + (Date.now() - data.users[id].lastStart);
+  const user = data.users[id];
+  if (!user.running) return user.total;
+  return user.total + (Date.now() - user.lastStart);
 }
 
-// Menu pracy
+// Wyświetlenie menu pracy
 async function sendMenu(message) {
   const embed = new EmbedBuilder()
     .setTitle('💼 Menu Pracy')
-    .setDescription('Wybierz akcję:\n\n🟢 Rozpocznij Służbę\n⏸️ Przerwa\n🔴 Zakończ Służbę')
-    .setColor(0x00FF00)
-    .setFooter({ text: 'Twój licznik czasu ⏱️' });
+    .setDescription('Kliknij przycisk aby zarządzać służbą')
+    .setColor(0x00FF00);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('start').setLabel('🟢 Rozpocznij Służbę').setStyle(ButtonStyle.Success),
@@ -42,7 +47,7 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
-// Wiadomości na kanale
+// Obsługa komend
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -56,7 +61,7 @@ client.on('messageCreate', async message => {
 
   if (message.content === '!tabela') {
     const rows = Object.entries(data.users)
-      .map(([id, user]) => `<@${id}>: ${formatTime(getElapsed(id))}`);
+      .map(([id]) => `<@${id}>: ${formatTime(getElapsed(id))}`);
     message.channel.send(`📊 **Tabela Służby:**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
   }
 
@@ -69,21 +74,22 @@ client.on('messageCreate', async message => {
   }
 });
 
+// Obsługa przycisków
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
-  const channel = interaction.channel;
   const now = Date.now();
 
   if (!data.users[id]) data.users[id] = { total: 0, running: false, lastStart: null, startTime: null };
+  const user = data.users[id];
 
   // START
   if (interaction.customId === 'start') {
-    if (data.users[id].running) return interaction.reply({ content:'Już jesteś w pracy! ⏱️', ephemeral:true });
+    if (user.running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
 
-    data.users[id].running = true;
-    data.users[id].lastStart = now;
-    data.users[id].startTime = now;
+    user.running = true;
+    user.lastStart = now;
+    user.startTime = now;
     if (!data.total[id]) data.total[id] = 0;
     saveData();
 
@@ -92,15 +98,16 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
 
-    interaction.update({ content:'🟢 Rozpoczęto służbę!', components: [row] });
+    await interaction.update({ components: [row] });
+    await interaction.followUp({ content:'🟢 Rozpoczęto służbę!', ephemeral:true });
   }
 
   // PAUSE
   if (interaction.customId === 'pause') {
-    if (!data.users[id].running) return interaction.reply({ content:'Nie jesteś w pracy!', ephemeral:true });
+    if (!user.running) return interaction.reply({ content:'Nie jesteś w pracy!', ephemeral:true });
 
-    data.users[id].running = false;
-    data.users[id].total += now - data.users[id].lastStart;
+    user.running = false;
+    user.total += now - user.lastStart;
     saveData();
 
     const row = new ActionRowBuilder().addComponents(
@@ -108,16 +115,16 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
 
-    await interaction.update({ content:'⏸️ Przerwa rozpoczęta!', components: [row] });
-    channel.send(`<@${id}> jest teraz na przerwie ⏸️`);
+    await interaction.update({ components: [row] });
+    await interaction.followUp({ content:'⏸️ Jesteś na przerwie!', ephemeral:true });
   }
 
   // RESUME
   if (interaction.customId === 'resume') {
-    if (data.users[id].running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
+    if (user.running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
 
-    data.users[id].running = true;
-    data.users[id].lastStart = now;
+    user.running = true;
+    user.lastStart = now;
     saveData();
 
     const row = new ActionRowBuilder().addComponents(
@@ -125,32 +132,23 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
 
-    await interaction.update({ content:'▶️ Służba wznowiona!', components: [row] });
-    channel.send(`<@${id}> wznowił służbę ⏱️`);
+    await interaction.update({ components: [row] });
+    await interaction.followUp({ content:'▶️ Służba wznowiona!', ephemeral:true });
   }
 
   // STOP
   if (interaction.customId === 'stop') {
-    if (data.users[id].running) data.users[id].total += now - data.users[id].lastStart;
-    data.users[id].running = false;
+    if (user.running) user.total += now - user.lastStart;
+    user.running = false;
 
-    const startTime = new Date(data.users[id].startTime).toLocaleString();
+    const startTime = new Date(user.startTime).toLocaleString();
     const endTime = new Date(now).toLocaleString();
-    const sessionTime = data.users[id].total;
+    const sessionTime = user.total;
 
     data.total[id] = (data.total[id] || 0) + sessionTime;
-
     saveData();
 
-    await channel.send(
-      `<@${id}> 🔴 **Służba zakończona!**\n` +
-      `🕒 Rozpoczęto: ${startTime}\n` +
-      `🕒 Zakończono: ${endTime}\n` +
-      `⏱️ Czas dzisiejszej służby: ${formatTime(sessionTime)}\n` +
-      `📊 Łączny czas: ${formatTime(data.total[id])}`
-    );
-
-    data.users[id].total = 0;
+    user.total = 0;
     saveData();
 
     const row = new ActionRowBuilder().addComponents(
@@ -159,7 +157,16 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('stop').setLabel('🔴 Zakończ Służbę').setStyle(ButtonStyle.Danger)
     );
 
-    interaction.update({ content:'Panel gotowy do nowej służby', components: [row] });
+    await interaction.update({ components: [row] });
+    await interaction.followUp({
+      content:
+        `🔴 **Służba zakończona!**\n` +
+        `🕒 Rozpoczęto: ${startTime}\n` +
+        `🕒 Zakończono: ${endTime}\n` +
+        `⏱️ Czas dzisiejszej służby: ${formatTime(sessionTime)}\n` +
+        `📊 Łączny czas: ${formatTime(data.total[id])}`,
+      ephemeral: true
+    });
   }
 });
 
