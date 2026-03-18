@@ -29,6 +29,7 @@ function getElapsed(id) {
   return elapsed;
 }
 
+// Menu pracy
 async function sendMenu(message) {
   const embed = new EmbedBuilder()
     .setTitle('💼 Menu Pracy')
@@ -44,6 +45,7 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
+// Obsługa komend
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -70,6 +72,7 @@ client.on('messageCreate', async message => {
   }
 });
 
+// Obsługa przycisków
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
@@ -161,5 +164,34 @@ client.on('interactionCreate', async interaction => {
     });
   }
 });
+
+// 🔒 Auto-save bieżących sesji co 5 sekund
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, user] of Object.entries(data.users)) {
+    if (user.running && user.lastStart) {
+      user.total += now - user.lastStart;
+      user.lastStart = now;
+    }
+  }
+  saveData();
+}, 5000);
+
+// 🔒 Graceful shutdown – zapis przed wyłączeniem
+const saveAllBeforeExit = () => {
+  const now = Date.now();
+  for (const [id, user] of Object.entries(data.users)) {
+    if (user.running && user.lastStart) {
+      user.total += now - user.lastStart;
+      user.lastStart = now;
+    }
+  }
+  saveData();
+  process.exit();
+};
+
+process.on('SIGINT', saveAllBeforeExit);
+process.on('SIGTERM', saveAllBeforeExit);
+process.on('beforeExit', saveAllBeforeExit);
 
 client.login(process.env.DISCORD_TOKEN);
