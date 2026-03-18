@@ -6,7 +6,7 @@ const client = new Client({
 });
 
 const DATA_FILE = './data.json';
-let data = { users: {}, total: {} };
+let data = { users: {} };
 if (fs.existsSync(DATA_FILE)) data = JSON.parse(fs.readFileSync(DATA_FILE));
 
 function saveData() {
@@ -45,7 +45,7 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
-// Obsługa komend
+// Komendy
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -57,29 +57,19 @@ client.on('messageCreate', async message => {
     message.channel.send('🧹 Dane bieżących służb zostały zresetowane!');
   }
 
-if (message.content === '!tabela') {
-  const now = Date.now();
-  const rows = Object.entries(data.users)
-    .map(([id, user]) => {
-      let elapsed = user.total || 0;
-      if (user.running && user.lastStart) {
-        elapsed += now - user.lastStart; // dodaj aktualny czas trwającej sesji
-      }
-      return `<@${id}>: ${formatTime(elapsed)}`;
-    });
-  message.channel.send(`📊 **Tabela Służby:**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
-}
-
-  if (message.content === '!ranking') {
-    const ranking = Object.entries(data.total)
-      .sort(([,a],[,b]) => b - a)
-      .slice(0,10)
-      .map(([id,total],i) => `${i+1}. <@${id}> – ${formatTime(total)}`);
-    message.channel.send(`🏆 **Top 10 Służby (łączny czas):**\n${ranking.length ? ranking.join('\n') : 'Brak danych'}`);
+  if (message.content === '!tabela') {
+    const now = Date.now();
+    const rows = Object.entries(data.users)
+      .map(([id, user]) => {
+        let elapsed = user.total || 0;
+        if (user.running && user.lastStart) elapsed += now - user.lastStart;
+        return `<@${id}>: ${formatTime(elapsed)}`;
+      });
+    message.channel.send(`📊 **Tabela Służby (od ostatniego resetu):**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
   }
 });
 
-// Obsługa przycisków
+// Przyciski
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
@@ -94,7 +84,6 @@ client.on('interactionCreate', async interaction => {
     user.running = true;
     user.lastStart = now;
     user.startTime = now;
-    if (!data.total[id]) data.total[id] = 0;
     saveData();
 
     const row = new ActionRowBuilder().addComponents(
@@ -145,12 +134,8 @@ client.on('interactionCreate', async interaction => {
 
     const startTime = new Date(user.startTime).toLocaleString();
     const endTime = new Date(now).toLocaleString();
-    const sessionTime = user.total;
+    const sessionTime = now - user.startTime;
 
-    data.total[id] = (data.total[id] || 0) + sessionTime;
-    saveData();
-
-    user.total = 0;
     saveData();
 
     const row = new ActionRowBuilder().addComponents(
@@ -165,8 +150,8 @@ client.on('interactionCreate', async interaction => {
         `🔴 **Służba zakończona!**\n` +
         `🕒 Rozpoczęto: ${startTime}\n` +
         `🕒 Zakończono: ${endTime}\n` +
-        `⏱️ Czas dzisiejszej służby: ${formatTime(sessionTime)}\n` +
-        `📊 Łączny czas: ${formatTime(data.total[id])}`,
+        `⏱️ Czas tej służby: ${formatTime(sessionTime)}\n` +
+        `📊 Łączny czas od ostatniego resetu: ${formatTime(user.total)}`,
       ephemeral: true
     });
   }
@@ -184,7 +169,7 @@ setInterval(() => {
   saveData();
 }, 5000);
 
-// 🔒 Graceful shutdown – zapis przed wyłączeniem
+// 🔒 Graceful shutdown
 const saveAllBeforeExit = () => {
   const now = Date.now();
   for (const [id, user] of Object.entries(data.users)) {
