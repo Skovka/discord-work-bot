@@ -9,6 +9,12 @@ const DATA_FILE = './data.json';
 let data = { users: {} };
 if (fs.existsSync(DATA_FILE)) data = JSON.parse(fs.readFileSync(DATA_FILE));
 
+// Lista ID ról, które mogą używać komend
+const ALLOWED_ROLE_IDS = [
+  '123456789012345678', // tutaj wpisz ID roli Sheriff
+  '987654321098765432'  // możesz dodać więcej ID jeśli potrzebne
+];
+
 function saveData() {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
@@ -51,9 +57,16 @@ async function sendMenu(message) {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  if (message.content === '!menu') await sendMenu(message);
-
-  if (message.content === '!reset' && message.member.permissions.has('ManageMessages')) {
+    if (message.content === '!menu') {
+      const hasRole = message.member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
+      if (!hasRole) return message.reply('❌ Nie masz uprawnień do użycia tej komendy!');
+    await sendMenu(message);
+  }
+  
+  if (message.content === '!reset') {
+    const hasRole = message.member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id));
+    if (!hasRole) return message.reply('❌ Nie masz uprawnień do użycia tej komendy!');
+    
     data.users = {};
     saveData();
     message.channel.send('🧹 Dane bieżących służb zostały zresetowane!');
