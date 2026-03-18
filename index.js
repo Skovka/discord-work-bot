@@ -9,12 +9,10 @@ const DATA_FILE = './data.json';
 let data = { users: {}, total: {} };
 if (fs.existsSync(DATA_FILE)) data = JSON.parse(fs.readFileSync(DATA_FILE));
 
-// Zapis danych
 function saveData() {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// Format czasu
 function formatTime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const h = Math.floor(totalSeconds / 3600);
@@ -23,19 +21,18 @@ function formatTime(ms) {
   return `${h}h ${m}m ${s}s`;
 }
 
-// Pobranie aktualnego czasu dla użytkownika
 function getElapsed(id) {
   if (!data.users[id]) return 0;
   const user = data.users[id];
-  if (!user.running) return user.total;
-  return user.total + (Date.now() - user.lastStart);
+  let elapsed = user.total || 0;
+  if (user.running && user.lastStart) elapsed += Date.now() - user.lastStart;
+  return elapsed;
 }
 
-// Wyświetlenie menu pracy
 async function sendMenu(message) {
   const embed = new EmbedBuilder()
     .setTitle('💼 Menu Pracy')
-    .setDescription('Kliknij przycisk aby zarządzać służbą')
+    .setDescription('Kliknij przycisk, aby zarządzać służbą')
     .setColor(0x00FF00);
 
   const row = new ActionRowBuilder().addComponents(
@@ -47,7 +44,6 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
-// Obsługa komend
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -74,7 +70,6 @@ client.on('messageCreate', async message => {
   }
 });
 
-// Obsługa przycisków
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
@@ -86,7 +81,6 @@ client.on('interactionCreate', async interaction => {
   // START
   if (interaction.customId === 'start') {
     if (user.running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
-
     user.running = true;
     user.lastStart = now;
     user.startTime = now;
@@ -105,7 +99,6 @@ client.on('interactionCreate', async interaction => {
   // PAUSE
   if (interaction.customId === 'pause') {
     if (!user.running) return interaction.reply({ content:'Nie jesteś w pracy!', ephemeral:true });
-
     user.running = false;
     user.total += now - user.lastStart;
     saveData();
@@ -122,7 +115,6 @@ client.on('interactionCreate', async interaction => {
   // RESUME
   if (interaction.customId === 'resume') {
     if (user.running) return interaction.reply({ content:'Już jesteś w pracy!', ephemeral:true });
-
     user.running = true;
     user.lastStart = now;
     saveData();
