@@ -29,12 +29,14 @@ function getElapsed(id) {
   return elapsed;
 }
 
-// Menu pracy
+// MENU PRACY BCSO
 async function sendMenu(message) {
   const embed = new EmbedBuilder()
-    .setTitle('💼 Menu Pracy')
-    .setDescription('Kliknij przycisk, aby zarządzać służbą')
-    .setColor(0x00FF00);
+    .setTitle('💼 Panel Służby BCSO')
+    .setDescription('Kliknij przycisk, aby rozpocząć, przerwać lub zakończyć służbę.\n🟢 Rozpocznij – rozpoczynasz służbę\n⏸️ Przerwa – wstrzymujesz licznik\n🔴 Zakończ – kończysz służbę')
+    .setColor(0xFFAA00) // ciemno-żółty
+    .setThumbnail('https://i.imgur.com/8y6XG8K.png')
+    .setFooter({ text: 'BCSO Duty Panel', iconURL: 'https://i.imgur.com/8y6XG8K.png' });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('start').setLabel('🟢 Rozpocznij Służbę').setStyle(ButtonStyle.Success),
@@ -45,7 +47,7 @@ async function sendMenu(message) {
   await message.channel.send({ embeds: [embed], components: [row] });
 }
 
-// Komendy
+// KOMENDY
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -59,17 +61,22 @@ client.on('messageCreate', async message => {
 
   if (message.content === '!tabela') {
     const now = Date.now();
-    const rows = Object.entries(data.users)
-      .map(([id, user]) => {
-        let elapsed = user.total || 0;
-        if (user.running && user.lastStart) elapsed += now - user.lastStart;
-        return `<@${id}>: ${formatTime(elapsed)}`;
-      });
-    message.channel.send(`📊 **Tabela Służby (od ostatniego resetu):**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
+    const embed = new EmbedBuilder()
+      .setTitle('📊 Tabela Służby BCSO')
+      .setColor(0xFFAA00)
+      .setFooter({ text: 'Łączny czas od ostatniego resetu' });
+
+    Object.entries(data.users).forEach(([id, user]) => {
+      let elapsed = user.total || 0;
+      if (user.running && user.lastStart) elapsed += now - user.lastStart;
+      embed.addFields({ name: `<@${id}>`, value: `⏱️ ${formatTime(elapsed)}`, inline: true });
+    });
+
+    await message.channel.send({ embeds: [embed] });
   }
 });
 
-// Przyciski
+// PRZYCISKI
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
   const id = interaction.user.id;
