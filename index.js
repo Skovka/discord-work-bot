@@ -57,11 +57,18 @@ client.on('messageCreate', async message => {
     message.channel.send('🧹 Dane bieżących służb zostały zresetowane!');
   }
 
-  if (message.content === '!tabela') {
-    const rows = Object.entries(data.users)
-      .map(([id]) => `<@${id}>: ${formatTime(getElapsed(id))}`);
-    message.channel.send(`📊 **Tabela Służby:**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
-  }
+if (message.content === '!tabela') {
+  const now = Date.now();
+  const rows = Object.entries(data.users)
+    .map(([id, user]) => {
+      let elapsed = user.total || 0;
+      if (user.running && user.lastStart) {
+        elapsed += now - user.lastStart; // dodaj aktualny czas trwającej sesji
+      }
+      return `<@${id}>: ${formatTime(elapsed)}`;
+    });
+  message.channel.send(`📊 **Tabela Służby:**\n${rows.length ? rows.join('\n') : 'Brak danych'}`);
+}
 
   if (message.content === '!ranking') {
     const ranking = Object.entries(data.total)
