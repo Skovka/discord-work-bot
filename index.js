@@ -35,8 +35,8 @@ async function sendMenu(message) {
     .setTitle('💼 Panel Służby BCSO')
     .setDescription('Kliknij przycisk, aby rozpocząć, przerwać lub zakończyć służbę.\n🟢 Rozpocznij – rozpoczynasz służbę\n⏸️ Przerwa – wstrzymujesz licznik\n🔴 Zakończ – kończysz służbę')
     .setColor(0xFFAA00) // ciemno-żółty
-    .setThumbnail('https://i.imgur.com/8y6XG8K.png')
-    .setFooter({ text: 'BCSO Duty Panel', iconURL: 'https://i.imgur.com/8y6XG8K.png' });
+    .setThumbnail('https://cdn.discordapp.com/attachments/1483908126100160553/1483965959147491461/upscalemedia-transformed_preview_rev_1.png?ex=69bc827f&is=69bb30ff&hm=1d13d81010eab2bde60ec420d918c3bb44516806484e84b2748948f98036a794&') // Twoje zdjęcie
+    .setFooter({ text: 'BCSO Duty Panel', iconURL: 'https://cdn.discordapp.com/attachments/1483908126100160553/1483965959147491461/upscalemedia-transformed_preview_rev_1.png?ex=69bc827f&is=69bb30ff&hm=1d13d81010eab2bde60ec420d918c3bb44516806484e84b2748948f98036a794&' });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('start').setLabel('🟢 Rozpocznij Służbę').setStyle(ButtonStyle.Success),
