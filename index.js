@@ -11,8 +11,12 @@ if (fs.existsSync(DATA_FILE)) data = JSON.parse(fs.readFileSync(DATA_FILE));
 
 // Lista ID ról, które mogą używać komend
 const ALLOWED_ROLE_IDS = [
-  '123456789012345678', // tutaj wpisz ID roli Sheriff
-  '987654321098765432'  // możesz dodać więcej ID jeśli potrzebne
+  '1425196295416713264',
+  '1425196295416713261',
+  '1425196295416713263',
+  '1425196295416713260',
+  '1425196295416713259',
+  '1470489426772758819'
 ];
 
 function saveData() {
